@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'">
+  <title>AI Usage</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main id="card">
+    <header class="drag">
+      <span class="title">AI Usage</span>
+      <span class="actions no-drag">
+        <button id="refresh" title="Actualiser">⟳</button>
+        <button id="hide" title="Masquer (Ctrl+Alt+U)">–</button>
+        <button id="quit" title="Quitter">×</button>
+      </span>
+    </header>
+
+    <section class="provider claude">
+      <h2><span class="dot"></span>Claude</h2>
+      <div id="claude-bars"></div>
+      <p class="meta" id="claude-local"></p>
+    </section>
+
+    <section class="provider codex">
+      <h2><span class="dot"></span>Codex <small id="codex-plan"></small></h2>
+      <div id="codex-bars"></div>
+      <p class="meta" id="codex-meta"></p>
+    </section>
+
+    <footer id="footer">100 % local · aucun réseau</footer>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

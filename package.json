@@ -1,0 +1,22 @@
+{
+  "name": "ai-usage-widget",
+  "version": "1.0.0",
+  "description": "Widget local d'utilisation Claude + Codex. Lit uniquement des fichiers locaux : aucun identifiant, aucun appel réseau.",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win portable"
+  },
+  "devDependencies": {
+    "electron": "45.3.3",
+    "electron-builder": "^26.0.0"
+  },
+  "build": {
+    "appId": "local.ai-usage-widget",
+    "productName": "AI-Usage-Widget",
+    "files": ["main.js", "preload.js", "src/**/*", "!src/**/*.test.js"],
+    "win": { "target": ["portable"] },
+    "portable": { "artifactName": "AI-Usage-Widget-${version}-portable.exe" }
+  }
+}
