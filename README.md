@@ -32,7 +32,7 @@ Par défaut, les profils sont détectés automatiquement (tout dossier `~/.claud
 }
 ```
 
-`kind` : `forfait` (abonnement, avec quotas 5 h / 7 j) ou `api` (facturé à l'usage, pas de quota). Les coûts sont estimés aux prix publics de l'API (`src/collectors/pricing.js`) ; pour un forfait, c'est un équivalent API, pas ce que vous payez.
+`kind` : `forfait` (abonnement, avec quotas 5 h / 7 j) ou `api` (facturé à l'usage, pas de quota). Les coûts sont estimés aux prix publics de l'API, définis dans `src/collectors/pricing.json` (grille unique, aussi lue par le panneau Herdr `claude-usage` ; chemin modifiable via la variable `AI_USAGE_PRICING`) ; pour un forfait, c'est un équivalent API, pas ce que vous payez.
 
 ## Activer le % officiel Claude
 
