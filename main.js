@@ -12,14 +12,16 @@ const { createEngine } = require('./src/core/engine');
 const { createPercentIcon } = require('./src/core/tray-icon');
 const { buildReport } = require('./src/core/report');
 
+// Development and automated tests only: isolated data folder. Must come before
+// the single-instance lock, which is keyed on userData: otherwise a demo or e2e
+// run quits silently while the real widget is running.
+if (!app.isPackaged && process.env.AI_USAGE_DATA_DIR) app.setPath('userData', process.env.AI_USAGE_DATA_DIR);
+
 if (!app.requestSingleInstanceLock()) {
   app.quit();
   process.exit(0);
 }
 if (process.platform === 'win32') app.setAppUserModelId('local.ai-usage-widget');
-
-// Development and automated tests only: isolated data folder.
-if (!app.isPackaged && process.env.AI_USAGE_DATA_DIR) app.setPath('userData', process.env.AI_USAGE_DATA_DIR);
 
 const POLL_MS = 30 * 1000;
 const WIDTH = 300;
