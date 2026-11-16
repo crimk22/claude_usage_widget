@@ -11,24 +11,27 @@
     <header class="drag">
       <span class="title">AI Usage</span>
       <span class="actions no-drag">
-        <button id="refresh" title="Actualiser">⟳</button>
-        <button id="hide" title="Masquer (Ctrl+Alt+U)">–</button>
-        <button id="quit" title="Quitter">×</button>
+        <button id="dashboard" data-i18n-title="btn.dashboard" aria-label="Dashboard">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-5 4 3 5-7"/></svg>
+        </button>
+        <button id="refresh" data-i18n-title="btn.refresh">⟳</button>
+        <button id="hide" data-i18n-title="btn.hide">–</button>
+        <button id="quit" data-i18n-title="btn.quit">×</button>
       </span>
     </header>
 
     <div id="claude-profiles"></div>
-
     <div class="total" id="claude-total"></div>
 
-    <section class="provider codex">
+    <section class="provider codex" id="codex">
       <h2><span class="dot"></span>Codex <small id="codex-plan"></small></h2>
       <div id="codex-bars"></div>
       <p class="meta" id="codex-meta"></p>
     </section>
 
-    <footer id="footer">100 % local · aucun réseau</footer>
+    <footer id="footer"></footer>
   </main>
+  <script src="../core/i18n.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

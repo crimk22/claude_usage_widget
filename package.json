@@ -1,22 +1,44 @@
 {
   "name": "ai-usage-widget",
-  "version": "1.0.0",
-  "description": "Widget local d'utilisation Claude + Codex. Lit uniquement des fichiers locaux : aucun identifiant, aucun appel réseau.",
+  "version": "2.0.0",
+  "description": "Cockpit local d'utilisation Claude + Codex. Lit uniquement des fichiers locaux : aucun identifiant, aucun appel réseau.",
   "main": "main.js",
   "private": true,
   "scripts": {
     "start": "electron .",
+    "demo": "node scripts/demo.js",
+    "test": "node --test test/*.test.js",
+    "test:e2e": "node test/e2e/run.js",
+    "lint": "eslint .",
     "build": "electron-builder --win portable"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.0",
     "electron": "45.3.3",
-    "electron-builder": "^26.0.0"
+    "electron-builder": "^26.0.0",
+    "eslint": "^10.0.0",
+    "globals": "^16.0.0",
+    "playwright-core": "^1.50.0"
   },
   "build": {
     "appId": "local.ai-usage-widget",
     "productName": "AI-Usage-Widget",
-    "files": ["main.js", "preload.js", "src/**/*", "!src/**/*.test.js"],
-    "win": { "target": ["portable"] },
-    "portable": { "artifactName": "AI-Usage-Widget-${version}-portable.exe" }
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*"
+    ],
+    "win": {
+      "target": [
+        "portable"
+      ]
+    },
+    "portable": {
+      "artifactName": "AI-Usage-Widget-${version}-portable.exe"
+    }
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
   }
 }

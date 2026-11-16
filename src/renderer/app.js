@@ -1,68 +1,7 @@
-/* global widget */
 const $ = (id) => document.getElementById(id);
 
-const fmtTime = (ms) => new Date(ms).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-function fmtReset(ms, now) {
-  if (!ms) return '';
-  const d = ms - now;
-  if (d <= 0) return 'réinitialisé';
-  const h = Math.floor(d / 3600e3);
-  const m = Math.floor((d % 3600e3) / 60e3);
-  const days = Math.floor(h / 24);
-  const left = days >= 1 ? `${days} j ${h % 24} h` : h >= 1 ? `${h} h ${String(m).padStart(2, '0')}` : `${m} min`;
-  const at = new Date(ms);
-  const sameDay = at.toDateString() === new Date(now).toDateString();
-  const when = sameDay ? fmtTime(ms) : at.toLocaleString('fr-FR', { weekday: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-  return `reset dans ${left} · ${when}`;
-}
-function fmtAgo(ms, now) {
-  if (!ms) return '';
-  const m = Math.round((now - ms) / 60e3);
-  if (m < 1) return "à l'instant";
-  if (m < 60) return `il y a ${m} min`;
-  const h = Math.round(m / 60);
-  if (h < 48) return `il y a ${h} h`;
-  return `il y a ${Math.round(h / 24)} j`;
-}
-function fmtTokens(n) {
-  if (n >= 1e6) return `${(n / 1e6).toFixed(1).replace('.', ',')} M`;
-  if (n >= 1e3) return `${Math.round(n / 1e3)} k`;
-  return String(n);
-}
-
-/** One usage bar. windowMs lets us draw the even-pace marker. */
-function bar(label, w, now, windowMs) {
-  const el = document.createElement('div');
-  el.className = 'bar';
-  if (!w) {
-    el.innerHTML = `<div class="row"><span class="label"></span><span class="value">–</span></div>`;
-    el.querySelector('.label').textContent = label;
-    return el;
-  }
-  const p = Math.max(0, Math.min(100, w.usedPercent));
-  const level = p >= 90 ? 'danger' : p >= 75 ? 'warn' : '';
-  el.innerHTML = `
-    <div class="row"><span class="label"></span><span class="value"></span></div>
-    <div class="track"><div class="fill ${level}"></div></div>
-    <div class="reset"></div>`;
-  el.querySelector('.label').textContent = label;
-  el.querySelector('.value').textContent = `${Math.round(p)} %`;
-  el.querySelector('.fill').style.width = `${p}%`;
-  el.querySelector('.reset').textContent = w.stale ? 'fenêtre réinitialisée depuis la dernière mesure' : fmtReset(w.resetsAt, now);
-  if (w.resetsAt && windowMs && !w.stale) {
-    const elapsed = 1 - (w.resetsAt - now) / windowMs;
-    if (elapsed > 0 && elapsed < 1) {
-      const m = document.createElement('div');
-      m.className = 'pace';
-      m.title = 'Rythme régulier';
-      m.style.left = `${elapsed * 100}%`;
-      el.querySelector('.track').appendChild(m);
-    }
-  }
-  return el;
-}
-
-const usd = (n) => (n >= 100 ? `$${n.toFixed(0)}` : `$${n.toFixed(2)}`);
+let ui = { lang: 'fr', theme: 'dark', warn: 75, danger: 90, showCosts: true };
+const T = (key, vars) => I18n.t(ui.lang, key, vars);
 
 function el(tag, cls, text) {
   const e = document.createElement(tag);
@@ -71,79 +10,167 @@ function el(tag, cls, text) {
   return e;
 }
 
+function fmtReset(ms, now, approx) {
+  if (!ms) return '';
+  if (ms - now <= 0) return T('reset.done');
+  return (approx ? '≈ ' : '') + T('reset.in', { left: I18n.left(ms - now, ui.lang), when: I18n.when(ms, now, ui.lang) });
+}
+
+/**
+ * One usage bar.
+ * g: { pct, official?, estimated?, resetsAt, approxReset?, stale? } — windowMs draws the even-pace marker.
+ */
+function bar(label, g, now, windowMs) {
+  const box = el('div', 'bar');
+  const row = el('div', 'row');
+  row.append(el('span', 'label', label));
+  if (!g) {
+    row.append(el('span', 'value', '–'));
+    box.append(row);
+    return box;
+  }
+  const p = Math.max(0, Math.min(100, g.pct));
+  const level = p >= ui.danger ? 'danger' : p >= ui.warn ? 'warn' : '';
+  const value = el('span', 'value', (g.estimated ? '≈ ' : '') + I18n.pct(p, ui.lang));
+  if (g.estimated) value.title = T('bar.estimated', { official: Math.round(g.official) });
+  row.append(value);
+
+  const track = el('div', 'track');
+  const official = g.estimated ? Math.max(0, Math.min(100, g.official)) : p;
+  const fill = el('div', `fill ${level}`);
+  fill.style.width = `${official}%`;
+  track.append(fill);
+  if (g.estimated && p > official) {
+    // Lighter segment: what local activity adds on top of the last official reading.
+    const est = el('div', `fill est ${level}`);
+    est.style.left = `${official}%`;
+    est.style.width = `${p - official}%`;
+    track.append(est);
+  }
+  if (g.resetsAt && windowMs && !g.stale) {
+    const elapsed = 1 - (g.resetsAt - now) / windowMs;
+    if (elapsed > 0 && elapsed < 1) {
+      const m = el('div', 'pace');
+      m.title = T('bar.pace');
+      m.style.left = `${elapsed * 100}%`;
+      track.append(m);
+    }
+  }
+  box.append(row, track, el('div', 'reset', g.stale ? T('reset.stale') : fmtReset(g.resetsAt, now, g.approxReset)));
+  return box;
+}
+
+function forecastLine(c, now) {
+  const f = c.forecast || {};
+  const s = f.session;
+  let text = '';
+  let level = '';
+  if (s && s.status === 'limit') { text = T('forecast.limit'); level = 'danger'; }
+  else if (s && s.status === 'will_hit') { text = T('forecast.hit', { time: I18n.time(s.hitAt, ui.lang) }); level = 'warn'; }
+  else if (f.weekly && f.weekly.status === 'limit') { text = T('forecast.limit'); level = 'danger'; }
+  else if (f.weekly && f.weekly.status === 'will_hit') { text = T('forecast.weekHit', { time: I18n.when(f.weekly.hitAt, now, ui.lang) }); level = 'warn'; }
+  else if (s && s.status === 'ok') text = T('forecast.ok', { pct: Math.round(s.projectedAtReset) });
+  else if (f.budget != null) text = T('forecast.budget', { pct: Math.round(f.budget) });
+  return text ? el('p', `forecast ${level}`, text) : null;
+}
+
 function profileCard(c, now) {
   const sec = el('section', 'provider claude');
   const h = el('h2');
   h.append(el('span', 'dot'), document.createTextNode(c.name),
-    el('span', `tag ${c.kind === 'api' ? 'api' : ''}`, c.kind === 'api' ? 'facturé' : 'équiv. API'));
+    el('span', `tag ${c.kind === 'api' ? 'api' : ''}`, T(c.kind === 'api' ? 'tag.api' : 'tag.plan')));
   sec.append(h);
 
-  const o = c.official;
+  const o = c.official || {};
   if (c.kind !== 'api') {
     if (o.available) {
-      sec.append(bar('Session (5 h)', o.fiveHour, now, 5 * 3600e3), bar('Semaine (7 j)', o.sevenDay, now, 7 * 24 * 3600e3));
+      sec.append(bar(T('bar.session'), c.session, now, 5 * 3600e3), bar(T('bar.week'), c.weekly, now, 7 * 24 * 3600e3));
+      const line = forecastLine(c, now);
+      if (line) sec.append(line);
+    } else if (c.relay && c.relay.mode === 'none') {
+      const p = el('p', 'empty', T('quota.none') + ' · ');
+      const link = el('button', 'link', T('quota.enable'));
+      link.addEventListener('click', () => widget.openDashboard());
+      p.append(link);
+      sec.append(p);
     } else {
-      sec.append(el('p', 'empty', 'Quota : pas encore de données (ouvrez une session Claude Code sur ce profil)'));
+      sec.append(el('p', 'empty', T(o.relaySeen ? 'quota.noLimits' : 'quota.open')));
     }
   }
 
-  const l = c.local;
-  if (l.available) {
+  const l = c.local || {};
+  if (l.available && ui.showCosts) {
     const costs = el('div', 'costs');
-    for (const [k, b] of [["Aujourd'hui", l.today], ['7 jours', l.week], ['Ce mois', l.month]]) {
+    for (const [k, b] of [[T('cost.today'), l.today], [T('cost.week'), l.week], [T('cost.month'), l.month]]) {
       const cell = el('div');
-      cell.append(el('div', 'k', k), el('div', 'v', usd(b.cost)), el('div', 's', `${fmtTokens(b.tokens)} tok`));
+      cell.append(el('div', 'k', k), el('div', 'v', I18n.usd(b.cost)), el('div', 's', `${I18n.tokens(b.tokens, ui.lang)} ${T('unit.tok')}`));
       costs.append(cell);
     }
     sec.append(costs);
   }
 
   const meta = [];
-  if (o.observedAt) meta.push(`quota relevé ${fmtAgo(o.observedAt, now)}`);
-  if (l.lastActivity) meta.push(`dernière activité ${fmtAgo(l.lastActivity, now)}`);
+  if (o.observedAt && o.available) meta.push(T('meta.quota', { ago: I18n.ago(o.observedAt, now, ui.lang) }));
+  if (l.lastActivity) meta.push(T('meta.activity', { ago: I18n.ago(l.lastActivity, now, ui.lang) }));
   if (meta.length) sec.append(el('p', 'meta', meta.join(' · ')));
+  if (l.unpricedModels && l.unpricedModels.length && ui.showCosts) {
+    const warn = el('p', 'meta warn-text', T('meta.unpriced', { n: l.unpricedModels.length }));
+    warn.title = l.unpricedModels.join(', ');
+    sec.append(warn);
+  }
   return sec;
+}
+
+function codexName(w) {
+  if (!w || !w.windowMinutes) return T('bar.limit');
+  const min = w.windowMinutes;
+  if (min <= 300) return T('bar.sessionH', { n: Math.round(min / 60) });
+  if (min <= 10080) return T('bar.weekD', { n: Math.round(min / 1440) });
+  return T('bar.month', { n: Math.round(min / 1440) });
 }
 
 function render(d) {
   const now = d.now;
+  ui = d.ui || ui;
+  document.documentElement.lang = ui.lang;
+  document.body.className = `theme-${ui.theme}`;
+  document.querySelectorAll('[data-i18n-title]').forEach((n) => { n.title = T(n.dataset.i18nTitle); });
 
   // Claude: one card per profile
   const box = $('claude-profiles');
-  box.replaceChildren(...d.claude.map((c) => profileCard(c, now)));
-  const total = d.claude.reduce((s, c) => s + (c.local.available ? c.local.month.cost : 0), 0);
-  $('claude-total').innerHTML = d.claude.length > 1 ? '<span>Claude · total du mois (estimé)</span><b></b>' : '';
-  if (d.claude.length > 1) $('claude-total').querySelector('b').textContent = usd(total);
+  if (d.claude.length) box.replaceChildren(...d.claude.map((c) => profileCard(c, now)));
+  else {
+    const sec = el('section', 'provider claude');
+    sec.append(el('p', 'empty', T('profile.none')));
+    box.replaceChildren(sec);
+  }
+  const total = d.claude.reduce((s, c) => s + (c.local && c.local.available ? c.local.month.cost : 0), 0);
+  const totalBox = $('claude-total');
+  totalBox.replaceChildren();
+  if (d.claude.length > 1 && ui.showCosts) totalBox.append(el('span', '', T('cost.total')), el('b', '', I18n.usd(total)));
 
   // Codex
+  const x = d.codex;
+  $('codex').hidden = Boolean(x.hidden);
   const xb = $('codex-bars');
   xb.replaceChildren();
-  const x = d.codex;
   $('codex-plan').textContent = x.plan ? `· ${x.plan}` : '';
   if (x.available) {
-    const name = (w) => {
-      if (!w || !w.windowMinutes) return 'Limite';
-      const min = w.windowMinutes;
-      if (min <= 300) return `Session (${Math.round(min / 60)} h)`;
-      if (min <= 10080) return `Semaine (${Math.round(min / 1440)} j)`;
-      return `Mois (${Math.round(min / 1440)} j)`;
-    };
-    if (x.primary) xb.append(bar(name(x.primary), x.primary, now, x.primary.windowMinutes * 60e3));
-    if (x.secondary) xb.append(bar(name(x.secondary), x.secondary, now, x.secondary.windowMinutes * 60e3));
-    $('codex-meta').textContent = x.observedAt ? `mesuré ${fmtAgo(x.observedAt, now)} (dernière requête Codex)` : '';
+    const g = (w) => ({ pct: w.usedPercent, resetsAt: w.resetsAt, stale: w.stale });
+    if (x.primary) xb.append(bar(codexName(x.primary), g(x.primary), now, x.primary.windowMinutes * 60e3));
+    if (x.secondary) xb.append(bar(codexName(x.secondary), g(x.secondary), now, x.secondary.windowMinutes * 60e3));
+    $('codex-meta').textContent = x.observedAt ? T('codex.measured', { ago: I18n.ago(x.observedAt, now, ui.lang) }) : '';
   } else {
-    const p = document.createElement('p');
-    p.className = 'empty';
-    p.textContent = 'Aucune donnée Codex trouvée';
-    xb.append(p);
+    xb.append(el('p', 'empty', T('codex.none')));
     $('codex-meta').textContent = '';
   }
 
-  $('footer').textContent = `100 % local · aucun réseau · ${fmtTime(now)}`;
-  requestAnimationFrame(() => widget.resize(document.getElementById('card').offsetHeight + 12));
+  $('footer').textContent = T('app.footer', { time: I18n.time(now, ui.lang) });
+  requestAnimationFrame(() => widget.resize($('card').offsetHeight + 12));
 }
 
 widget.onUsage(render);
+$('dashboard').addEventListener('click', () => widget.openDashboard());
 $('refresh').addEventListener('click', () => widget.refresh());
 $('hide').addEventListener('click', () => widget.hide());
 $('quit').addEventListener('click', () => widget.quit());

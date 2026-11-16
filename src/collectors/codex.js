@@ -32,8 +32,8 @@ function createCodexCollector({ root = path.join(os.homedir(), '.codex', 'sessio
     latest = { t, rl: p.rate_limits, info: p.info };
   }
 
-  function poll(now = Date.now()) {
-    tail.readNew(listJsonl(root), onRecord);
+  async function poll(now = Date.now()) {
+    await tail.readNew(await listJsonl(root), onRecord, { mustContain: 'token_count', minMtimeMs: now - 35 * 24 * 3600 * 1000 });
     if (!latest) return { source: 'codex-local', available: false };
     const { rl, t } = latest;
     const fix = (w) => {
