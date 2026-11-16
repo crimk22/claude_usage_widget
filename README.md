@@ -16,6 +16,24 @@ Le trait blanc sur une barre marque le rythme régulier : si la barre le dépass
 
 Limite : seule l'utilisation via Claude Code et Codex est visible. L'usage dans le navigateur (claude.ai, ChatGPT) n'est pas dans ces fichiers.
 
+## Plusieurs profils Claude
+
+Chaque dossier de configuration Claude Code (`~/.claude`, `~/.claude-<nom>`, choisi via `CLAUDE_CONFIG_DIR`) est un profil. Le widget affiche une carte par profil : % officiel (forfaits), coût estimé aujourd'hui / 7 jours / mois, et un total du mois.
+
+Par défaut, les profils sont détectés automatiquement (tout dossier `~/.claude*` contenant `projects/`). Pour les nommer, ajoutez-les dans `%APPDATA%\AI-Usage-Widget\settings.json` :
+
+```json
+{
+  "profiles": [
+    { "name": "Moi",   "dir": "~/.claude",       "kind": "forfait" },
+    { "name": "Ma collègue", "dir": "~/.claude-collegue", "kind": "forfait" },
+    { "name": "API",   "dir": "~/.claude-api",   "kind": "api" }
+  ]
+}
+```
+
+`kind` : `forfait` (abonnement, avec quotas 5 h / 7 j) ou `api` (facturé à l'usage, pas de quota). Les coûts sont estimés aux prix publics de l'API (`src/collectors/pricing.js`) ; pour un forfait, c'est un équivalent API, pas ce que vous payez.
+
 ## Activer le % officiel Claude
 
 Claude Code transmet `rate_limits` à la status line (plans Pro, Max et Ultra). Ajoutez ceci à votre script de status line PowerShell, après la lecture du JSON dans `$j` :

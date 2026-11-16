@@ -9,6 +9,7 @@ const path = require('path');
 const { createClaudeCollector } = require('./src/collectors/claude');
 const { createClaudeOfficialCollector } = require('./src/collectors/claude-official');
 const { createCodexCollector } = require('./src/collectors/codex');
+const { resolveProfiles } = require('./src/collectors/profiles');
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();
@@ -20,11 +21,16 @@ const POLL_MS = 30 * 1000;
 const WIDTH = 300;
 const SHORTCUT = 'CommandOrControl+Alt+U';
 
-const collectors = {
-  claudeLocal: createClaudeCollector(),
-  claudeOfficial: createClaudeOfficialCollector(),
-  codex: createCodexCollector()
-};
+let profiles = []; // [{ name, dir, kind, local, official }]
+const codex = createCodexCollector();
+
+function loadProfiles() {
+  profiles = resolveProfiles(readSettings().profiles).map((p) => ({
+    ...p,
+    local: createClaudeCollector({ dir: p.dir }),
+    official: createClaudeOfficialCollector({ dir: p.dir })
+  }));
+}
 
 let win = null;
 let tray = null;
@@ -54,9 +60,13 @@ function collect() {
   const safe = (fn) => { try { return fn(now); } catch (e) { return { available: false, error: String(e.message || e) }; } };
   last = {
     now,
-    claudeOfficial: safe(collectors.claudeOfficial.poll),
-    claudeLocal: safe(collectors.claudeLocal.poll),
-    codex: safe(collectors.codex.poll)
+    claude: profiles.map((p) => ({
+      name: p.name,
+      kind: p.kind,
+      official: p.kind === 'api' ? { available: false } : safe(p.official.poll),
+      local: safe(p.local.poll)
+    })),
+    codex: safe(codex.poll)
   };
   if (win && !win.isDestroyed()) win.webContents.send('usage', last);
   updateTray();
@@ -66,12 +76,12 @@ function pct(w) { return w && typeof w.usedPercent === 'number' ? `${Math.round(
 
 function updateTray() {
   if (!tray || !last) return;
-  const c = last.claudeOfficial;
+  const lines = last.claude
+    .filter((c) => c.official.available)
+    .map((c) => `${c.name}  5h ${pct(c.official.fiveHour)} · 7j ${pct(c.official.sevenDay)}`);
   const x = last.codex;
-  tray.setToolTip([
-    `Claude  5h ${pct(c.fiveHour)} · 7j ${pct(c.sevenDay)}`,
-    `Codex   ${pct(x.primary)}${x.secondary ? ` · ${pct(x.secondary)}` : ''}`
-  ].join('\n'));
+  if (x.available) lines.push(`Codex  ${pct(x.primary)}${x.secondary ? ` · ${pct(x.secondary)}` : ''}`);
+  tray.setToolTip(lines.join('\n').slice(0, 127) || 'AI Usage'); // Windows caps tooltips at 127 chars
 }
 
 // --- window -------------------------------------------------------------------
@@ -100,6 +110,13 @@ function createWindow() {
   win.setAlwaysOnTop(true, 'floating');
   win.loadFile(path.join(__dirname, 'src/renderer/index.html'));
   win.once('ready-to-show', () => { win.show(); collect(); });
+  // Dev only: WIDGET_SCREENSHOT=<file.png> saves what the window renders.
+  if (!app.isPackaged && process.env.WIDGET_SCREENSHOT) {
+    setTimeout(async () => {
+      const img = await win.webContents.capturePage();
+      fs.writeFileSync(process.env.WIDGET_SCREENSHOT, img.toPNG());
+    }, 4000);
+  }
   win.webContents.on('will-navigate', (e) => e.preventDefault());
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
 
@@ -147,6 +164,7 @@ app.whenReady().then(() => {
     if (win) win.setSize(WIDTH, height);
   });
 
+  loadProfiles();
   createWindow();
   createTray();
   globalShortcut.register(SHORTCUT, toggle);

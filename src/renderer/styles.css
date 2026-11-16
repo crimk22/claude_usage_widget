@@ -64,5 +64,15 @@ h2 small { color: var(--muted); font-weight: 400; }
 .reset { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
 
 .meta { color: var(--muted); font-size: 11px; margin-top: 6px; }
+.tag { margin-left: auto; font-size: 10px; font-weight: 400; padding: 1px 6px; border-radius: 4px; background: var(--track); color: var(--muted); }
+.tag.api { background: var(--claude); color: #1b1b1f; }
+.costs { display: flex; gap: 6px; margin-top: 8px; }
+.costs > div { flex: 1; }
+.costs .k { color: var(--muted); font-size: 10px; }
+.costs .v { font-weight: 600; font-variant-numeric: tabular-nums; }
+.costs .s { color: var(--muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+.total { display: flex; justify-content: space-between; padding: 6px 12px; color: var(--muted); border-top: 1px solid var(--border); }
+.total b { color: var(--fg); font-variant-numeric: tabular-nums; }
+.total:empty { display: none; }
 .empty { color: var(--muted); font-style: italic; }
 footer { padding: 6px 12px; color: var(--muted); font-size: 10px; border-top: 1px solid var(--border); text-align: center; }

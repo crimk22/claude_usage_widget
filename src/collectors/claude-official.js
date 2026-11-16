@@ -9,12 +9,12 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-function defaultFile() {
-  const dir = process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude');
-  return path.join(dir, 'rate-limits.json');
+function defaultDir() {
+  return process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude');
 }
 
-function createClaudeOfficialCollector({ file = defaultFile() } = {}) {
+function createClaudeOfficialCollector({ dir = defaultDir() } = {}) {
+  const file = path.join(dir, 'rate-limits.json');
   function windowOf(w, observedAt, now) {
     if (!w || typeof w.used_percentage !== 'number') return null;
     const resetsAt = w.resets_at ? w.resets_at * 1000 : null;

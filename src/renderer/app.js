@@ -62,29 +62,58 @@ function bar(label, w, now, windowMs) {
   return el;
 }
 
+const usd = (n) => (n >= 100 ? `$${n.toFixed(0)}` : `$${n.toFixed(2)}`);
+
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+
+function profileCard(c, now) {
+  const sec = el('section', 'provider claude');
+  const h = el('h2');
+  h.append(el('span', 'dot'), document.createTextNode(c.name),
+    el('span', `tag ${c.kind === 'api' ? 'api' : ''}`, c.kind === 'api' ? 'facturé' : 'équiv. API'));
+  sec.append(h);
+
+  const o = c.official;
+  if (c.kind !== 'api') {
+    if (o.available) {
+      sec.append(bar('Session (5 h)', o.fiveHour, now, 5 * 3600e3), bar('Semaine (7 j)', o.sevenDay, now, 7 * 24 * 3600e3));
+    } else {
+      sec.append(el('p', 'empty', 'Quota : pas encore de données (ouvrez une session Claude Code sur ce profil)'));
+    }
+  }
+
+  const l = c.local;
+  if (l.available) {
+    const costs = el('div', 'costs');
+    for (const [k, b] of [["Aujourd'hui", l.today], ['7 jours', l.week], ['Ce mois', l.month]]) {
+      const cell = el('div');
+      cell.append(el('div', 'k', k), el('div', 'v', usd(b.cost)), el('div', 's', `${fmtTokens(b.tokens)} tok`));
+      costs.append(cell);
+    }
+    sec.append(costs);
+  }
+
+  const meta = [];
+  if (o.observedAt) meta.push(`quota relevé ${fmtAgo(o.observedAt, now)}`);
+  if (l.lastActivity) meta.push(`dernière activité ${fmtAgo(l.lastActivity, now)}`);
+  if (meta.length) sec.append(el('p', 'meta', meta.join(' · ')));
+  return sec;
+}
+
 function render(d) {
   const now = d.now;
 
-  // Claude
-  const cb = $('claude-bars');
-  cb.replaceChildren();
-  const co = d.claudeOfficial;
-  if (co.available) {
-    cb.append(bar('Session (5 h)', co.fiveHour, now, 5 * 3600e3), bar('Semaine (7 j)', co.sevenDay, now, 7 * 24 * 3600e3));
-  } else {
-    const p = document.createElement('p');
-    p.className = 'empty';
-    p.textContent = 'Pas de % officiel (lancez Claude Code une fois)';
-    cb.append(p);
-  }
-  const cl = d.claudeLocal;
-  const parts = [];
-  if (co.observedAt) parts.push(`mesuré ${fmtAgo(co.observedAt, now)}`);
-  if (cl.available) {
-    if (cl.session) parts.push(`session : ${fmtTokens(cl.session.tokens)} tokens, ${cl.session.messages} msg`);
-    parts.push(`7 j : ${fmtTokens(cl.week.tokens)} tokens`);
-  }
-  $('claude-local').textContent = parts.join(' · ');
+  // Claude: one card per profile
+  const box = $('claude-profiles');
+  box.replaceChildren(...d.claude.map((c) => profileCard(c, now)));
+  const total = d.claude.reduce((s, c) => s + (c.local.available ? c.local.month.cost : 0), 0);
+  $('claude-total').innerHTML = d.claude.length > 1 ? '<span>Claude · total du mois (estimé)</span><b></b>' : '';
+  if (d.claude.length > 1) $('claude-total').querySelector('b').textContent = usd(total);
 
   // Codex
   const xb = $('codex-bars');
